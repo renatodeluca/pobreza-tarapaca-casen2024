@@ -33,11 +33,10 @@ https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen
 - kableExtra
 
 ## Estructura del proyecto
-- `analisis_pobreza_tarapaca_casen24.R` — script principal
-- `.gitignore` — excluye los datos originales
-- `README.md` — documentación del proyecto
 
- 
+<!-- TREE_START -->
+<!-- TREE_END -->
+
 ## Resultados principales
 | Comuna | % Pobreza por ingresos |
 |--------|------------------------|
