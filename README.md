@@ -35,6 +35,7 @@ https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen
 ## Estructura del proyecto
 
 pobreza-tarapaca-casen2024/
+
 ├── analisis_pobreza_tarapaca_casen24.R
 ├── .gitignore
 └── README.md
