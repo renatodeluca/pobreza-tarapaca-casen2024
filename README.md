@@ -1,5 +1,5 @@
 # Pobreza comunal en la Región de Tarapacá
-Análisis de pobreza comunal usando CASEN 2024 con diseño muestral complejo.
+Análisis de pobreza comunal por ingresos usando CASEN 2024 con diseño muestral complejo.
 
 ## Datos
 Los datos CASEN 2024 están disponibles en:
