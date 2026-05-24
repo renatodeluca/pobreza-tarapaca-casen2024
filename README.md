@@ -19,7 +19,7 @@ https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen
 - Diseño muestral complejo mediante `srvyr`
 - Uso de factores de expansión
 - Cálculo de intervalos de confianza al 95%
-- Integración con cartografía comunal mediante `sf`
+- Integración con cartografía comunal mediante `chilemapas` y `sf`
 - Visualización de resultados con `ggplot2`
 
 ## Herramientas
@@ -60,3 +60,6 @@ El proyecto genera:
 ## Nota
 
 Los archivos de datos originales no se incluyen en este repositorio y deben descargarse por separado.
+
+## Créditos
+Este análisis se apoyó en tutoriales y recursos de [Bastián Olea](https://github.com/bastianolea), quien comparte material de visualización y procesamiento de datos en R.
