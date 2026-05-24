@@ -1,0 +1,6 @@
+#datos CASEN (no subir por peso y licencia)
+*.RData
+*.Rdata
+*.dta
+*.sav
+
