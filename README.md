@@ -33,12 +33,9 @@ https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen
 - kableExtra
 
 ## Estructura del proyecto
-
-pobreza-tarapaca-casen2024/
-
-├── analisis_pobreza_tarapaca_casen24.R
-├── .gitignore
-└── README.md
+- `analisis_pobreza_tarapaca_casen24.R` — script principal
+- `.gitignore` — excluye los datos originales
+- `README.md` — documentación del proyecto
 
  
 ## Resultados principales
