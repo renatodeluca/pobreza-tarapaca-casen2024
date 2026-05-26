@@ -12,7 +12,7 @@ library(haven)
 library(knitr)
 library(kableExtra)
 library(magick)
-
+library(readxl)
 # cargar datos ----
 load("casen_2024.Rdata")
 load("casen_region2024.Rdata")
@@ -39,17 +39,19 @@ casen_svy |>
          ic_low = percent(p_low, accuracy = 0.1),
          ic_upp = percent(p_upp, accuracy = 0.1))
 
-#pobreza comunal con pesos e IC------
-pobreza_comunal_svy <- casen_svy |> 
+#pobreza comunal dicotomizada con pesos e IC------
+pobreza_dic_svy <- casen_svy |>  
   filter(region == 1) |> 
-  group_by(region, comuna, pobreza) |> 
+  mutate(pobreza_2 = ifelse(pobreza %in% c(1, 2), "pobre", "no pobre")) |> 
+  group_by(region, comuna, pobreza_2) |> 
   summarize(n = survey_total(),
-            p = survey_mean(vartype = c("se", "ci"))) |> 
-  mutate(pobreza_label = as_factor(pobreza),
-         comuna_nombre = as_factor(comuna),
+            p = survey_mean(vartype = c("se", "ci", "cv"))) |> 
+  filter(pobreza_2 == "pobre") |> 
+  mutate(comuna_nombre = as_factor(comuna),
          porcentaje = percent(p, accuracy = 0.1),
          ic_low = percent(p_low, accuracy = 0.1),
-         ic_upp = percent(p_upp, accuracy = 0.1))
+         ic_upp = percent(p_upp, accuracy = 0.1),
+         codigo_comuna = str_pad(comuna, width = 5, pad = "0"))
 
 #pobreza comunal dicotomizada con pesos e IC------
 pobreza_dic_svy <- casen_svy |>  
@@ -68,10 +70,14 @@ pobreza_dic_svy <- casen_svy |>
 
 #coeficiente de variacion
 
-pobreza_dic_svy |> select(comuna_nombre, p, p_se, cv) |> print(n = 7)
+pobreza_dic_svy <- pobreza_dic_svy |>
+  mutate(cv = p_se / p)
 
+pobreza_dic_svy |>
+  select(comuna_nombre, p, p_se, cv) |>
+  print(n = 7)
 
-# mapa comunal Tarapacá -------
+# cargar mapa con chilemapas
 mapa_comunal <- mapa_comunas |> 
   filter(codigo_region == "01")
 
@@ -203,4 +209,62 @@ tabla_final |>
     zoom = 2                    
   )
 
+#add sae 2024 (se skipean 2 porque esta mal formateado el excel)
+sae <- read_excel("SAE_ingresos_2024.xlsx", skip = 2) |>
+  janitor::clean_names()
 
+names(sae)
+# unir con estimacion creada con leftjoin
+sae <- sae |>
+  mutate(codigo = str_pad(codigo, width = 5, pad = "0"))
+
+comparacion <- pobreza_dic_svy |>
+  left_join(sae, by = c("codigo_comuna" = "codigo"))
+#comparacion  sae y casen
+comparacion |>
+  select(comuna_nombre, p, porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024, tipo_de_estimacion_sae, cv) |>
+  print(n = 7)
+
+#tabla comparativa
+
+comparacion |>
+  ungroup() |>
+  select(comuna_nombre, p, 
+         porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024,
+         tipo_de_estimacion_sae, cv) |>
+  mutate(
+    p_label    = percent(p, accuracy = 0.1),
+    sae_label  = percent(porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024, accuracy = 0.1),
+    diferencia = percent(porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024 - p, accuracy = 0.1),
+    cv_label   = percent(cv, accuracy = 0.1),
+    calidad_cv = case_when(
+      cv < 0.15 ~ "Bajo",
+      cv < 0.30 ~ "Medio",
+      TRUE      ~ "Alto")
+  ) |>
+  select(comuna_nombre, p_label, sae_label, diferencia, cv_label, calidad_cv) |>
+  rename(
+    Comuna                 = comuna_nombre,
+    `Estimación CASEN 2024`= p_label,
+    `SAE 2024`             = sae_label,
+    `Diferencia`           = diferencia,
+    `CV`                   = cv_label,
+    `Calidad CV`           = calidad_cv
+  ) |>
+  kable(format = "html", align = "c") |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    font_size  = 16,
+    html_font  = "Times New Roman"
+  ) |>
+  add_header_above(c(" " = 1, "Comparación metodológica | Tarapacá" = 5)) |>
+  footnote(
+    general = "Fuente: Elaboración propia en base a CASEN 2024 y SAE 2024, MIDESO.",
+    symbol  = "CV < 15%: Bajo. CV 15%-30%: Medio. CV > 30%: Alto."
+  ) |>
+  save_kable(
+    "output/graphs/comparacion_sae_directa.png",
+    density = 300,
+    zoom = 2
+  )
