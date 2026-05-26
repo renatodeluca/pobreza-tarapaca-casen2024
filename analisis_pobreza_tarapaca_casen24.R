@@ -268,3 +268,14 @@ comparacion |>
     density = 300,
     zoom = 2
   )
+
+# sacar el Z
+
+comparacion |>
+  ungroup() |>
+  mutate(
+    z = (p - porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024) / p_se,
+    p_valor = 2 * (1 - pnorm(abs(z))),
+    significativo = ifelse(p_valor < 0.05, "Sí", "No")
+  ) |>
+  select(comuna_nombre, p, porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024, z, p_valor, significativo)
