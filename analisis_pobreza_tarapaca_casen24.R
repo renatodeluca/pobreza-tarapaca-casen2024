@@ -247,7 +247,7 @@ comparacion |>
   add_header_above(c(" " = 1, "Comparación CASEN 2024 y SAE 2024 para la Región de Tarapacá" = 7)) |>
   footnote(
     general = "Fuente: Elaboración propia en base a CASEN 2024 y SAE 2024, MIDESO.",
-    symbol  = "CV < 15%: Bajo. CV 15%-30%: Medio. CV > 30%: Alto. p-valor < 0.05 indica diferencia estadísticamente significativa."
+    symbol  = "El CV corresponde a la estimación directa CASEN 2024. CV < 15%: Bajo (confiable). CV 15%-30%: Medio (cautela). CV > 30%: Alto (poco confiable). p-valor < 0.05 indica diferencia estadísticamente significativa entre ambas estimaciones."
   ) |>
   save_kable(
     "output/graphs/comparacion_sae_directa.png",
