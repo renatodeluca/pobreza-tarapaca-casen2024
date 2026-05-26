@@ -34,8 +34,13 @@ https://observatorio.ministeriodesarrollosocial.gob.cl/encuesta-casen
 
 ## Estructura del proyecto
 
-<!-- TREE_START -->
-<!-- TREE_END -->
+├── README.md
+├── analisis_pobreza_tarapaca_casen24.R
+└── output
+    └── graphs
+        ├── histograma_pobreza_tarapaca.png
+        ├── mapa_pobreza_tarapaca.png
+        └── tabla_pobreza_tarapaca.png
 
 ## Resultados principales
 | Comuna | % Pobreza por ingresos |
