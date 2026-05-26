@@ -65,6 +65,11 @@ pobreza_dic_svy <- casen_svy |>
          ic_upp = percent(p_upp, accuracy = 0.1),
          codigo_comuna = str_pad(comuna, width = 5, pad = "0"))
 
+#coeficiente de variacion
+
+pobreza_dic_svy <- pobreza_dic_svy |>
+  mutate(cv = p_se / p)
+
 # mapa comunal Tarapacá -------
 mapa_comunal <- mapa_comunas |> 
   filter(codigo_region == "01")
@@ -196,3 +201,5 @@ tabla_final |>
     density = 300,
     zoom = 2                    
   )
+
+
