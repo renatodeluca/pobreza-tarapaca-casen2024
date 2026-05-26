@@ -13,6 +13,8 @@ library(knitr)
 library(kableExtra)
 library(magick)
 library(readxl)
+library(janitor)
+library(forcats)
 # cargar datos ----
 load("casen_2024.Rdata")
 load("casen_region2024.Rdata")
@@ -39,19 +41,17 @@ casen_svy |>
          ic_low = percent(p_low, accuracy = 0.1),
          ic_upp = percent(p_upp, accuracy = 0.1))
 
-#pobreza comunal dicotomizada con pesos e IC------
-pobreza_dic_svy <- casen_svy |>  
+#pobreza comunal con pesos e IC------
+pobreza_comunal_svy <- casen_svy |> 
   filter(region == 1) |> 
-  mutate(pobreza_2 = ifelse(pobreza %in% c(1, 2), "pobre", "no pobre")) |> 
-  group_by(region, comuna, pobreza_2) |> 
+  group_by(region, comuna, pobreza) |> 
   summarize(n = survey_total(),
-            p = survey_mean(vartype = c("se", "ci", "cv"))) |> 
-  filter(pobreza_2 == "pobre") |> 
-  mutate(comuna_nombre = as_factor(comuna),
+            p = survey_mean(vartype = c("se", "ci"))) |> 
+  mutate(pobreza_label = as_factor(pobreza),
+         comuna_nombre = as_factor(comuna),
          porcentaje = percent(p, accuracy = 0.1),
          ic_low = percent(p_low, accuracy = 0.1),
-         ic_upp = percent(p_upp, accuracy = 0.1),
-         codigo_comuna = str_pad(comuna, width = 5, pad = "0"))
+         ic_upp = percent(p_upp, accuracy = 0.1))
 
 #pobreza comunal dicotomizada con pesos e IC------
 pobreza_dic_svy <- casen_svy |>  
@@ -65,19 +65,10 @@ pobreza_dic_svy <- casen_svy |>
          porcentaje = percent(p, accuracy = 0.1),
          ic_low = percent(p_low, accuracy = 0.1),
          ic_upp = percent(p_upp, accuracy = 0.1),
-         codigo_comuna = str_pad(comuna, width = 5, pad = "0"))
+         codigo_comuna = str_pad(comuna, width = 5, pad = "0"),
+         cv = (p_se / p) * 100)
 
-
-#coeficiente de variacion
-
-pobreza_dic_svy <- pobreza_dic_svy |>
-  mutate(cv = p_se / p)
-
-pobreza_dic_svy |>
-  select(comuna_nombre, p, p_se, cv) |>
-  print(n = 7)
-
-# cargar mapa con chilemapas
+# mapa comunal Tarapacá -------
 mapa_comunal <- mapa_comunas |> 
   filter(codigo_region == "01")
 
@@ -166,12 +157,10 @@ tabla_pobreza_svy <- pobreza_comunal_svy |>
   select(-any_of(c("region", "comuna"))) |>
   rename(Comuna = comuna_nombre)
 
-# flags para colorear
 flags_extrema    <- tabla_pobreza_svy$`no_confiable_Pobreza extrema`
 flags_no_extrema <- tabla_pobreza_svy$`no_confiable_Pobreza no extrema`
 flags_fuera      <- tabla_pobreza_svy$`no_confiable_Fuera de la pobreza`
 
-# tabla solo con columnas de texto
 tabla_final <- tabla_pobreza_svy |> 
   select(
     Comuna,
@@ -185,7 +174,6 @@ tabla_final <- tabla_pobreza_svy |>
     `Fuera de la pobreza` = `estimacion_Fuera de la pobreza`
   )
 
-# exportar tabla
 tabla_final |> 
   kable(format = "html", align = "c") |> 
   kable_styling(
@@ -209,30 +197,24 @@ tabla_final |>
     zoom = 2                    
   )
 
-#add sae 2024 (se skipean 2 porque esta mal formateado el excel)
+# cargar SAE 2024 ----
 sae <- read_excel("SAE_ingresos_2024.xlsx", skip = 2) |>
-  janitor::clean_names()
-
-names(sae)
-# unir con estimacion creada con leftjoin
-sae <- sae |>
+  janitor::clean_names() |>
   mutate(codigo = str_pad(codigo, width = 5, pad = "0"))
 
+# unir con estimacion directa
 comparacion <- pobreza_dic_svy |>
   left_join(sae, by = c("codigo_comuna" = "codigo"))
-#comparacion  sae y casen
-comparacion |>
-  select(comuna_nombre, p, porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024, tipo_de_estimacion_sae, cv) |>
-  print(n = 7)
 
-#tabla comparativa
-
+#tabla comparativa casen y sae
 comparacion |>
   ungroup() |>
-  select(comuna_nombre, p, 
-         porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024,
-         tipo_de_estimacion_sae, cv) |>
+  arrange(desc(porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024)) |>
   mutate(
+    se_sae     = (limite_superior - limite_inferior) / (2 * 1.96),
+    z          = (p - porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024) /
+                  sqrt(p_se^2 + se_sae^2),
+    p_valor    = 2 * (1 - pnorm(abs(z))),
     p_label    = percent(p, accuracy = 0.1),
     sae_label  = percent(porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024, accuracy = 0.1),
     diferencia = percent(porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024 - p, accuracy = 0.1),
@@ -240,16 +222,20 @@ comparacion |>
     calidad_cv = case_when(
       cv < 0.15 ~ "Bajo",
       cv < 0.30 ~ "Medio",
-      TRUE      ~ "Alto")
+      TRUE      ~ "Alto"),
+    z_label    = round(z, 2),
+    p_label2   = ifelse(p_valor < 0.001, "< 0.001", as.character(round(p_valor, 3)))
   ) |>
-  select(comuna_nombre, p_label, sae_label, diferencia, cv_label, calidad_cv) |>
+  select(comuna_nombre, p_label, sae_label, diferencia, cv_label, calidad_cv, z_label, p_label2) |>
   rename(
-    Comuna                 = comuna_nombre,
-    `Estimación CASEN 2024`= p_label,
-    `SAE 2024`             = sae_label,
-    `Diferencia`           = diferencia,
-    `CV`                   = cv_label,
-    `Calidad CV`           = calidad_cv
+    Comuna                  = comuna_nombre,
+    `Estimación CASEN 2024` = p_label,
+    `SAE 2024`              = sae_label,
+    `Diferencia`            = diferencia,
+    `CV`                    = cv_label,
+    `Calidad CV`            = calidad_cv,
+    `Z`                     = z_label,
+    `p-valor`               = p_label2
   ) |>
   kable(format = "html", align = "c") |>
   kable_styling(
@@ -258,10 +244,10 @@ comparacion |>
     font_size  = 16,
     html_font  = "Times New Roman"
   ) |>
-  add_header_above(c(" " = 1, "Comparación metodológica | Tarapacá" = 5)) |>
+  add_header_above(c(" " = 1, "Comparación CASEN 2024 y SAE 2024 para la Región de Tarapacá" = 7)) |>
   footnote(
     general = "Fuente: Elaboración propia en base a CASEN 2024 y SAE 2024, MIDESO.",
-    symbol  = "CV < 15%: Bajo. CV 15%-30%: Medio. CV > 30%: Alto."
+    symbol  = "CV < 15%: Bajo. CV 15%-30%: Medio. CV > 30%: Alto. p-valor < 0.05 indica diferencia estadísticamente significativa."
   ) |>
   save_kable(
     "output/graphs/comparacion_sae_directa.png",
@@ -269,13 +255,45 @@ comparacion |>
     zoom = 2
   )
 
-# sacar el Z
+#grafico de barras comparativo CASEN vs SAE
 
 comparacion |>
   ungroup() |>
-  mutate(
-    z = (p - porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024) / p_se,
-    p_valor = 2 * (1 - pnorm(abs(z))),
-    significativo = ifelse(p_valor < 0.05, "Sí", "No")
-  ) |>
-  select(comuna_nombre, p, porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024, z, p_valor, significativo)
+  arrange(desc(porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024)) |>
+  mutate(comuna_nombre = fct_reorder(comuna_nombre, 
+                                     porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024)) |>
+  select(comuna_nombre, p, porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024) |>
+  pivot_longer(cols = c(p, porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024),
+               names_to = "metodo",
+               values_to = "valor") |>
+  mutate(metodo = recode(metodo,
+                         "p" = "Estimación directa CASEN 2024",
+                         "porcentaje_de_personas_en_situacion_de_pobreza_de_ingresos_2024" = "SAE 2024")) |>
+  ggplot(aes(x = comuna_nombre, y = valor, fill = metodo)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = percent(valor, accuracy = 0.1)),
+            position = position_dodge(width = 0.9),
+            hjust = -0.1, size = 3.2) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 0.65)) +
+  scale_fill_manual(values = c("Estimación directa CASEN 2024" = "#a67c52",
+                                "SAE 2024" = "#5a3905")) +
+  coord_flip() +
+  labs(
+    title = "Pobreza comunal en la Región de Tarapacá: CASEN 2024 vs SAE 2024",
+    x = NULL,
+    y = "% en situación de pobreza por ingresos",
+    fill = NULL,
+    caption = "Fuente: Elaboración propia en base a CASEN 2024 y SAE 2024, MIDESO."
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 11, hjust = 0),
+    plot.caption = element_text(face = "italic", hjust = 0),
+    panel.grid.major.y = element_blank(),
+    legend.position = "bottom")
+ggsave(
+  filename = "output/graphs/comparacion_sae_casen.png",
+  width = 9,
+  height = 6,
+  dpi = 300,
+  bg = "white")
